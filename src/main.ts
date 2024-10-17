@@ -19,14 +19,6 @@ const clearButton = document.createElement("button");
 clearButton.textContent = "Clear";
 app.appendChild(clearButton);
 
-const undoButton = document.createElement("button");
-undoButton.textContent = "Undo";
-app.appendChild(undoButton);
-
-const redoButton = document.createElement("button");
-redoButton.textContent = "Redo";
-app.appendChild(redoButton);
-
 // Get the canvas 2D context for drawing
 const ctx = canvas.getContext("2d");
 if (ctx) {
@@ -36,7 +28,6 @@ if (ctx) {
 
 // Array to hold all strokes, where each stroke is an array of points
 let strokes: Array<Array<{ x: number; y: number }>> = [];
-let redoStack: Array<Array<{ x: number; y: number }>> = [];
 let currentStroke: Array<{ x: number; y: number }> = [];
 let drawing = false;
 
@@ -104,21 +95,3 @@ clearButton.addEventListener("click", () => {
   currentStroke = []; 
   ctx?.clearRect(0, 0, canvas.width, canvas.height); 
 });
-
-// Undo button
-undoButton.addEventListener("click", () => {
-    if (strokes.length > 0) {
-      const lastStroke = strokes.pop(); 
-      redoStack.push(lastStroke!); 
-      triggerDrawingChangedEvent(); 
-    }
-  });
-  
-  // Redo button 
-  redoButton.addEventListener("click", () => {
-    if (redoStack.length > 0) {
-      const redoStroke = redoStack.pop(); 
-      strokes.push(redoStroke!); 
-      triggerDrawingChangedEvent(); 
-    }
-  });
