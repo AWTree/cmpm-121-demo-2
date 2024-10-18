@@ -14,7 +14,7 @@ interface DisplayCommand {
   display(ctx: CanvasRenderingContext2D): void;
 }
 
-// Class for drawing lines on the canvas 
+// Class for drawing lines on the canvas
 class MarkerLine implements DisplayCommand {
   private points: Array<{ x: number; y: number }> = [];
   private lineWidth: number;
@@ -24,12 +24,10 @@ class MarkerLine implements DisplayCommand {
     this.lineWidth = lineWidth;
   }
 
-  // Add points to the current stroke 
   drag(x: number, y: number) {
     this.points.push({ x, y });
   }
 
-  // Display the stroke on the canvas
   display(ctx: CanvasRenderingContext2D) {
     ctx.lineWidth = this.lineWidth;
     if (this.points.length > 0) {
@@ -43,7 +41,7 @@ class MarkerLine implements DisplayCommand {
   }
 }
 
-// Class for displaying the tool preview 
+// Class for displaying the tool preview
 class ToolPreview {
   private x: number;
   private y: number;
@@ -55,22 +53,65 @@ class ToolPreview {
     this.radius = lineWidth / 2;
   }
 
-  // Update the position of the tool preview 
   updatePosition(x: number, y: number) {
     this.x = x;
     this.y = y;
   }
 
-  // Update the radius of the tool preview
   updateRadius(lineWidth: number) {
     this.radius = lineWidth / 2;
   }
 
-  // Display the tool preview as a circle on the canvas
   display(ctx: CanvasRenderingContext2D) {
     ctx.beginPath();
     ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
     ctx.stroke();
+  }
+}
+
+// Class for displaying the sticker preview
+class StickerPreview {
+  private x: number;
+  private y: number;
+  private sticker: string;
+
+  constructor(x: number, y: number, sticker: string) {
+    this.x = x;
+    this.y = y;
+    this.sticker = sticker;
+  }
+
+  updatePosition(x: number, y: number) {
+    this.x = x;
+    this.y = y;
+  }
+
+  display(ctx: CanvasRenderingContext2D) {
+    ctx.font = "40px Arial";
+    ctx.fillText(this.sticker, this.x, this.y);
+  }
+}
+
+// Class for displaying stickers 
+class Sticker implements DisplayCommand {
+  private x: number;
+  private y: number;
+  private sticker: string;
+
+  constructor(x: number, y: number, sticker: string) {
+    this.x = x;
+    this.y = y;
+    this.sticker = sticker;
+  }
+
+  drag(x: number, y: number) {
+    this.x = x;
+    this.y = y;
+  }
+
+  display(ctx: CanvasRenderingContext2D) {
+    ctx.font = "40px Arial";
+    ctx.fillText(this.sticker, this.x, this.y);
   }
 }
 
@@ -93,12 +134,18 @@ const undoButton = createButton("Undo");
 const redoButton = createButton("Redo");
 const thinMarkerButton = createButton("Thin");
 const thickMarkerButton = createButton("Thick");
+const sticker1Button = createButton("🖌️");
+const sticker2Button = createButton("🎨");
+const sticker3Button = createButton("🎲");
 
 app.appendChild(clearButton);
 app.appendChild(undoButton);
 app.appendChild(redoButton);
 app.appendChild(thinMarkerButton);
 app.appendChild(thickMarkerButton);
+app.appendChild(sticker1Button);
+app.appendChild(sticker2Button);
+app.appendChild(sticker3Button);
 
 // Function to create buttons
 function createButton(text: string): HTMLButtonElement {
@@ -108,7 +155,7 @@ function createButton(text: string): HTMLButtonElement {
 }
 
 //
-// VARIABLES
+// VARIABLES & STATE
 //
 
 // Canvas context
@@ -124,49 +171,81 @@ let currentStroke: MarkerLine | null = null;
 let drawing = false;
 let selectedLineWidth = 2;
 let toolPreview: ToolPreview | null = null;
+let selectedSticker: string | null = null;
+let stickerPreview: StickerPreview | null = null;
 
 //
 // EVENT LISTENERS
 //
 
-// Update tool thickness 
-thinMarkerButton.addEventListener("click", () => {
-  selectedLineWidth = 2;
-  updateSelectedTool(thinMarkerButton);
-  updateToolPreview();
-  triggerDrawingChangedEvent();
-});
+// Handle sticker selection and preview
+sticker1Button.addEventListener("click", () => handleStickerSelection("🖌️", sticker1Button));
+sticker2Button.addEventListener("click", () => handleStickerSelection("🎨", sticker2Button));
+sticker3Button.addEventListener("click", () => handleStickerSelection("🎲", sticker3Button));
 
-thickMarkerButton.addEventListener("click", () => {
-  selectedLineWidth = 8;
-  updateSelectedTool(thickMarkerButton);
-  updateToolPreview();
-  triggerDrawingChangedEvent();
-});
+// Update tool thickness on button click
+thinMarkerButton.addEventListener("click", () => handleToolSelection(2, thinMarkerButton));
+thickMarkerButton.addEventListener("click", () => handleToolSelection(8, thickMarkerButton));
 
 // Handle mouse events on the canvas
-canvas.addEventListener("mousedown", (event) => {
-  drawing = true;
-  toolPreview = null; 
-  currentStroke = new MarkerLine(event.offsetX, event.offsetY, selectedLineWidth);
-  triggerDrawingChangedEvent();
-});
+canvas.addEventListener("mousedown", handleMouseDown);
+canvas.addEventListener("mousemove", handleMouseMove);
+canvas.addEventListener("mouseup", handleMouseUp);
+canvas.addEventListener("mouseleave", () => (drawing = false));
 
-canvas.addEventListener("mousemove", (event) => {
-  if (!drawing) {
-    if (!toolPreview) {
-      toolPreview = new ToolPreview(event.offsetX, event.offsetY, selectedLineWidth);
-    } else {
-      toolPreview.updatePosition(event.offsetX, event.offsetY);
-    }
-    triggerDrawingChangedEvent(); 
+// Clear button functionality
+clearButton.addEventListener("click", clearCanvas);
+
+// Undo/redo button functionality
+undoButton.addEventListener("click", undoLastAction);
+redoButton.addEventListener("click", redoLastAction);
+
+//
+// HELPER FUNCTIONS
+//
+
+// Handle sticker selection and update the preview
+function handleStickerSelection(sticker: string, button: HTMLButtonElement) {
+  selectedSticker = sticker;
+  updateSelectedSticker(button);
+  updateStickerPreview();
+}
+
+// Handle tool selection 
+function handleToolSelection(lineWidth: number, button: HTMLButtonElement) {
+  selectedLineWidth = lineWidth;
+  updateSelectedTool(button);
+  updateToolPreview();
+  triggerDrawingChangedEvent();
+}
+
+// Mouse down event handler
+function handleMouseDown(event: MouseEvent) {
+  if (selectedSticker) {
+    const sticker = new Sticker(event.offsetX, event.offsetY, selectedSticker);
+    strokes.push(sticker);
+    stickerPreview = null; 
+  } else {
+    drawing = true;
+    toolPreview = null; 
+    currentStroke = new MarkerLine(event.offsetX, event.offsetY, selectedLineWidth);
+  }
+  triggerDrawingChangedEvent();
+}
+
+// Mouse move event handler
+function handleMouseMove(event: MouseEvent) {
+  if (!drawing && selectedSticker && stickerPreview) {
+    stickerPreview.updatePosition(event.offsetX, event.offsetY);
+    triggerDrawingChangedEvent();
   } else if (drawing && currentStroke) {
     currentStroke.drag(event.offsetX, event.offsetY);
     triggerDrawingChangedEvent();
   }
-});
+}
 
-canvas.addEventListener("mouseup", () => {
+// Mouse up event handler
+function handleMouseUp() {
   if (drawing && currentStroke) {
     strokes.push(currentStroke);
     currentStroke = null;
@@ -174,43 +253,36 @@ canvas.addEventListener("mouseup", () => {
     redoStack = [];
     updateButtonStates();
   }
-});
+}
 
-canvas.addEventListener("mouseleave", () => {
-  drawing = false;
-});
-
-// Clear button functionality
-clearButton.addEventListener("click", () => {
+// Clear 
+function clearCanvas() {
   strokes = [];
   currentStroke = null;
   redoStack = [];
   ctx?.clearRect(0, 0, canvas.width, canvas.height);
   updateButtonStates();
-});
+}
 
-// Undo/redo button functionality
-undoButton.addEventListener("click", () => {
+// Undo 
+function undoLastAction() {
   if (strokes.length > 0) {
     const lastStroke = strokes.pop();
     redoStack.push(lastStroke!);
     triggerDrawingChangedEvent();
     updateButtonStates();
   }
-});
+}
 
-redoButton.addEventListener("click", () => {
+// Redo 
+function redoLastAction() {
   if (redoStack.length > 0) {
     const redoStroke = redoStack.pop();
     strokes.push(redoStroke!);
     triggerDrawingChangedEvent();
     updateButtonStates();
   }
-});
-
-//
-// HELPER FUNCTIONS
-//
+}
 
 // Trigger the "drawing-changed" event 
 function triggerDrawingChangedEvent() {
@@ -218,22 +290,39 @@ function triggerDrawingChangedEvent() {
   canvas.dispatchEvent(event);
 }
 
-// Update the preview radius
+// Update the sticker preview
+function updateStickerPreview() {
+  stickerPreview = null;
+  if (selectedSticker) {
+    stickerPreview = new StickerPreview(0, 0, selectedSticker);
+  }
+  triggerDrawingChangedEvent();
+}
+
+// Update the tool preview 
 function updateToolPreview() {
   if (toolPreview) {
     toolPreview.updateRadius(selectedLineWidth);
   }
 }
 
-// Update the visual indicator 
-function updateSelectedTool(selectedButton: HTMLButtonElement) {
-  thinMarkerButton.classList.remove("selectedTool");
-  thickMarkerButton.classList.remove("selectedTool");
-
+// Highlight the selected sticker button
+function updateSelectedSticker(selectedButton: HTMLButtonElement) {
+  [sticker1Button, sticker2Button, sticker3Button].forEach(button =>
+    button.classList.remove("selectedTool")
+  );
   selectedButton.classList.add("selectedTool");
 }
 
-// Enable or disable buttons based on the state
+// Highlight the selected tool button 
+function updateSelectedTool(selectedButton: HTMLButtonElement) {
+  [thinMarkerButton, thickMarkerButton].forEach(button =>
+    button.classList.remove("selectedTool")
+  );
+  selectedButton.classList.add("selectedTool");
+}
+
+// Enable or disable buttons
 function updateButtonStates() {
   undoButton.disabled = strokes.length === 0;
   redoButton.disabled = redoStack.length === 0;
@@ -246,14 +335,19 @@ function updateButtonStates() {
 canvas.addEventListener("drawing-changed", () => {
   ctx?.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Redraw all the strokes
+  // Redraw all the strokes 
   for (const stroke of strokes) {
     stroke.display(ctx!);
   }
 
-  // Display the current stroke in progress
+  // Display the current stroke 
   if (currentStroke) {
     currentStroke.display(ctx!);
+  }
+
+  // Display the sticker preview 
+  if (!drawing && stickerPreview) {
+    stickerPreview.display(ctx!);
   }
 
   // Display the tool preview 
