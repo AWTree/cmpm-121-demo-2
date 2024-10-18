@@ -11,10 +11,12 @@ interface DisplayCommand {
 
 class MarkerLine implements DisplayCommand {
   private points: Array<{ x: number; y: number }> = [];
+  private lineWidth: number;
 
-  constructor(initialX: number, initialY: number) {
+  constructor(initialX: number, initialY: number, lineWidth: number) {
     // Initialize with the starting point
     this.points.push({ x: initialX, y: initialY });
+    this.lineWidth = lineWidth;
   }
 
   // Method to add new points as the user drags
@@ -25,6 +27,7 @@ class MarkerLine implements DisplayCommand {
   // The display method to draw the marker line on the canvas
   display(ctx: CanvasRenderingContext2D) {
     if (this.points.length > 0) {
+      ctx.lineWidth = this.lineWidth; 
       ctx.beginPath();
       ctx.moveTo(this.points[0].x, this.points[0].y);
       for (let i = 1; i < this.points.length; i++) {
@@ -57,6 +60,14 @@ const redoButton = document.createElement("button");
 redoButton.textContent = "Redo";
 app.appendChild(redoButton);
 
+const thinMarkerButton = document.createElement("button");
+thinMarkerButton.textContent = "Thin";
+app.appendChild(thinMarkerButton);
+
+const thickMarkerButton = document.createElement("button");
+thickMarkerButton.textContent = "Thick";
+app.appendChild(thickMarkerButton);
+
 // Get the canvas 2D context for drawing
 const ctx = canvas.getContext("2d");
 if (ctx) {
@@ -68,6 +79,7 @@ if (ctx) {
 let strokes: Array<DisplayCommand> = [];
 let redoStack: Array<DisplayCommand> = [];
 let currentStroke: MarkerLine | null = null;
+let selectedLineWidth = 2;
 let drawing = false;
 
 // Function to trigger "drawing-changed" event
@@ -79,7 +91,7 @@ function triggerDrawingChangedEvent() {
 // Mouse event listeners to collect points and trigger drawing event
 canvas.addEventListener("mousedown", (event) => {
   drawing = true;
-  currentStroke = new MarkerLine(event.offsetX, event.offsetY);
+  currentStroke = new MarkerLine(event.offsetX, event.offsetY,  selectedLineWidth);
   triggerDrawingChangedEvent();
 });
 
@@ -144,6 +156,23 @@ redoButton.addEventListener("click", () => {
     updateButtonStates();
   }
 });
+
+thinMarkerButton.addEventListener("click", () => {
+  selectedLineWidth = 2; 
+  updateSelectedTool(thinMarkerButton);
+});
+
+thickMarkerButton.addEventListener("click", () => {
+  selectedLineWidth = 6; 
+  updateSelectedTool(thickMarkerButton);
+});
+
+function updateSelectedTool(selectedButton: HTMLButtonElement) {
+  thinMarkerButton.classList.remove("selectedTool");
+  thickMarkerButton.classList.remove("selectedTool");
+
+  selectedButton.classList.add("selectedTool");
+}
 
 // Initialize button states
 updateButtonStates();
