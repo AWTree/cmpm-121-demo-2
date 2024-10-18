@@ -5,6 +5,36 @@ const app = document.querySelector<HTMLDivElement>("#app")!;
 
 document.title = APP_NAME;
 
+interface DisplayCommand {
+  display(ctx: CanvasRenderingContext2D): void;
+}
+
+class MarkerLine implements DisplayCommand {
+  private points: Array<{ x: number; y: number }> = [];
+
+  constructor(initialX: number, initialY: number) {
+    // Initialize with the starting point
+    this.points.push({ x: initialX, y: initialY });
+  }
+
+  // Method to add new points as the user drags
+  drag(x: number, y: number) {
+    this.points.push({ x, y });
+  }
+
+  // The display method to draw the marker line on the canvas
+  display(ctx: CanvasRenderingContext2D) {
+    if (this.points.length > 0) {
+      ctx.beginPath();
+      ctx.moveTo(this.points[0].x, this.points[0].y);
+      for (let i = 1; i < this.points.length; i++) {
+        ctx.lineTo(this.points[i].x, this.points[i].y);
+      }
+      ctx.stroke();
+    }
+  }
+}
+
 const title = document.createElement("h1");
 title.textContent = APP_NAME;
 app.appendChild(title);
@@ -35,9 +65,9 @@ if (ctx) {
 }
 
 // Array to hold all strokes, where each stroke is an array of points
-let strokes: Array<Array<{ x: number; y: number }>> = [];
-let redoStack: Array<Array<{ x: number; y: number }>> = [];
-let currentStroke: Array<{ x: number; y: number }> = [];
+let strokes: Array<DisplayCommand> = [];
+let redoStack: Array<DisplayCommand> = [];
+let currentStroke: MarkerLine | null = null;
 let drawing = false;
 
 // Function to trigger "drawing-changed" event
@@ -49,22 +79,24 @@ function triggerDrawingChangedEvent() {
 // Mouse event listeners to collect points and trigger drawing event
 canvas.addEventListener("mousedown", (event) => {
   drawing = true;
-  currentStroke = []; 
-  currentStroke.push({ x: event.offsetX, y: event.offsetY });
+  currentStroke = new MarkerLine(event.offsetX, event.offsetY);
   triggerDrawingChangedEvent();
 });
 
 canvas.addEventListener("mousemove", (event) => {
-  if (drawing) {
-    currentStroke.push({ x: event.offsetX, y: event.offsetY });
+  if (drawing && currentStroke) {
+    currentStroke.drag(event.offsetX, event.offsetY);
     triggerDrawingChangedEvent();
   }
 });
 
 canvas.addEventListener("mouseup", () => {
-  if (drawing) {
+  if (drawing && currentStroke) {
     strokes.push(currentStroke); 
+    currentStroke = null;
     drawing = false;
+    redoStack = []; 
+    updateButtonStates();
   }
 });
 
@@ -77,48 +109,46 @@ canvas.addEventListener("drawing-changed", () => {
   ctx?.clearRect(0, 0, canvas.width, canvas.height);
 
   for (const stroke of strokes) {
-    if (ctx && stroke.length > 0) {
-      ctx.beginPath();
-      ctx.moveTo(stroke[0].x, stroke[0].y);
-      for (let i = 1; i < stroke.length; i++) {
-        ctx.lineTo(stroke[i].x, stroke[i].y);
-      }
-      ctx.stroke();
-    }
+    stroke.display(ctx!);
   }
 
-  // Draw the current stroke in progress 
-  if (currentStroke.length > 0 && ctx) {
-    ctx.beginPath();
-    ctx.moveTo(currentStroke[0].x, currentStroke[0].y);
-    for (let i = 1; i < currentStroke.length; i++) {
-      ctx.lineTo(currentStroke[i].x, currentStroke[i].y);
-    }
-    ctx.stroke();
+  if (currentStroke) {
+    currentStroke.display(ctx!);
   }
 });
 
 // Clear button 
 clearButton.addEventListener("click", () => {
   strokes = []; 
-  currentStroke = []; 
+  currentStroke = null;
   ctx?.clearRect(0, 0, canvas.width, canvas.height); 
+  updateButtonStates();
 });
 
 // Undo button
 undoButton.addEventListener("click", () => {
-    if (strokes.length > 0) {
-      const lastStroke = strokes.pop(); 
-      redoStack.push(lastStroke!); 
-      triggerDrawingChangedEvent(); 
-    }
-  });
+  if (strokes.length > 0) {
+    const lastStroke = strokes.pop(); 
+    redoStack.push(lastStroke!); 
+    triggerDrawingChangedEvent(); 
+    updateButtonStates();
+  }
+});
   
-  // Redo button 
-  redoButton.addEventListener("click", () => {
-    if (redoStack.length > 0) {
-      const redoStroke = redoStack.pop(); 
-      strokes.push(redoStroke!); 
-      triggerDrawingChangedEvent(); 
-    }
-  });
+// Redo button 
+redoButton.addEventListener("click", () => {
+  if (redoStack.length > 0) {
+    const redoStroke = redoStack.pop(); 
+    strokes.push(redoStroke!); 
+    triggerDrawingChangedEvent(); 
+    updateButtonStates();
+  }
+});
+
+// Initialize button states
+updateButtonStates();
+
+function updateButtonStates() {
+  undoButton.disabled = strokes.length === 0;
+  redoButton.disabled = redoStack.length === 0;
+}
