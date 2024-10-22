@@ -46,10 +46,12 @@ class ToolPreview {
   private x: number;
   private y: number;
   private radius: number;
+  private lineWidth: number;
 
   constructor(x: number, y: number, lineWidth: number) {
     this.x = x;
     this.y = y;
+    this.lineWidth = lineWidth;
     this.radius = lineWidth / 2;
   }
 
@@ -58,14 +60,15 @@ class ToolPreview {
     this.y = y;
   }
 
-  updateRadius(lineWidth: number) {
+  updateLineWidth(lineWidth: number) {
     this.radius = lineWidth / 2;
   }
 
+  // Display the brush stroke preview
   display(ctx: CanvasRenderingContext2D) {
     ctx.beginPath();
-    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-    ctx.stroke();
+    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2); // Draw a circle (point)
+    ctx.fill(); // Fill the circle to represent the point
   }
 }
 
@@ -134,24 +137,34 @@ const undoButton = createButton("Undo");
 const redoButton = createButton("Redo");
 const thinMarkerButton = createButton("Thin");
 const thickMarkerButton = createButton("Thick");
-const sticker1Button = createButton("🖌️");
-const sticker2Button = createButton("🎨");
-const sticker3Button = createButton("🎲");
+const customStickerButton = createButton("Add Custom Sticker");
 
 app.appendChild(clearButton);
 app.appendChild(undoButton);
 app.appendChild(redoButton);
 app.appendChild(thinMarkerButton);
 app.appendChild(thickMarkerButton);
-app.appendChild(sticker1Button);
-app.appendChild(sticker2Button);
-app.appendChild(sticker3Button);
+app.appendChild(customStickerButton);
+
+// Sticker array
+let stickers = ["🖌️", "🎨", "🎲"];
+const stickerButtonsContainer = document.createElement("div");
+app.appendChild(stickerButtonsContainer);
 
 // Function to create buttons
 function createButton(text: string): HTMLButtonElement {
   const button = document.createElement("button");
   button.textContent = text;
   return button;
+}
+
+function updateStickerButtons() {
+  stickerButtonsContainer.innerHTML = ""; // Clear old buttons
+  stickers.forEach((sticker) => {
+    const stickerButton = createButton(sticker);
+    stickerButton.addEventListener("click", () => handleStickerSelection(sticker, stickerButton));
+    stickerButtonsContainer.appendChild(stickerButton);
+  });
 }
 
 //
@@ -178,11 +191,6 @@ let stickerPreview: StickerPreview | null = null;
 // EVENT LISTENERS
 //
 
-// Handle sticker selection and preview
-sticker1Button.addEventListener("click", () => handleStickerSelection("🖌️", sticker1Button));
-sticker2Button.addEventListener("click", () => handleStickerSelection("🎨", sticker2Button));
-sticker3Button.addEventListener("click", () => handleStickerSelection("🎲", sticker3Button));
-
 // Update tool thickness on button click
 thinMarkerButton.addEventListener("click", () => handleToolSelection(2, thinMarkerButton));
 thickMarkerButton.addEventListener("click", () => handleToolSelection(8, thickMarkerButton));
@@ -200,6 +208,15 @@ clearButton.addEventListener("click", clearCanvas);
 undoButton.addEventListener("click", undoLastAction);
 redoButton.addEventListener("click", redoLastAction);
 
+// Add event listener for creating custom stickers
+customStickerButton.addEventListener("click", () => {
+  const customSticker = prompt("Enter a new sticker:", "😀");
+  if (customSticker) {
+    stickers.push(customSticker);
+    updateStickerButtons();
+  }
+});
+
 //
 // HELPER FUNCTIONS
 //
@@ -207,13 +224,14 @@ redoButton.addEventListener("click", redoLastAction);
 // Handle sticker selection and update the preview
 function handleStickerSelection(sticker: string, button: HTMLButtonElement) {
   selectedSticker = sticker;
-  updateSelectedSticker(button);
+  updateSelectedTool(button);
   updateStickerPreview();
 }
 
 // Handle tool selection 
 function handleToolSelection(lineWidth: number, button: HTMLButtonElement) {
   selectedLineWidth = lineWidth;
+  selectedSticker = null; // Clear any sticker selection when switching to brush tool
   updateSelectedTool(button);
   updateToolPreview();
   triggerDrawingChangedEvent();
@@ -235,14 +253,23 @@ function handleMouseDown(event: MouseEvent) {
 
 // Mouse move event handler
 function handleMouseMove(event: MouseEvent) {
-  if (!drawing && selectedSticker && stickerPreview) {
-    stickerPreview.updatePosition(event.offsetX, event.offsetY);
+  if (!drawing && !selectedSticker) {
+    // Ensure the tool preview is created and updated
+    if (!toolPreview) {
+      toolPreview = new ToolPreview(event.offsetX, event.offsetY, selectedLineWidth);
+    } else {
+      toolPreview.updatePosition(event.offsetX, event.offsetY);
+    }
     triggerDrawingChangedEvent();
   } else if (drawing && currentStroke) {
     currentStroke.drag(event.offsetX, event.offsetY);
     triggerDrawingChangedEvent();
+  } else if (!drawing && selectedSticker && stickerPreview) {
+    stickerPreview.updatePosition(event.offsetX, event.offsetY);
+    triggerDrawingChangedEvent();
   }
 }
+
 
 // Mouse up event handler
 function handleMouseUp() {
@@ -298,20 +325,15 @@ function updateStickerPreview() {
   }
   triggerDrawingChangedEvent();
 }
-
 // Update the tool preview 
 function updateToolPreview() {
   if (toolPreview) {
-    toolPreview.updateRadius(selectedLineWidth);
+    toolPreview.updateLineWidth(selectedLineWidth);
+  } else {
+    // Create tool preview if not already created
+    toolPreview = new ToolPreview(0, 0, selectedLineWidth);
   }
-}
-
-// Highlight the selected sticker button
-function updateSelectedSticker(selectedButton: HTMLButtonElement) {
-  [sticker1Button, sticker2Button, sticker3Button].forEach(button =>
-    button.classList.remove("selectedTool")
-  );
-  selectedButton.classList.add("selectedTool");
+  triggerDrawingChangedEvent();
 }
 
 // Highlight the selected tool button 
@@ -320,6 +342,7 @@ function updateSelectedTool(selectedButton: HTMLButtonElement) {
     button.classList.remove("selectedTool")
   );
   selectedButton.classList.add("selectedTool");
+  triggerDrawingChangedEvent();
 }
 
 // Enable or disable buttons
@@ -328,30 +351,30 @@ function updateButtonStates() {
   redoButton.disabled = redoStack.length === 0;
 }
 
-//
-// CANVAS REDRAW LOGIC
-//
-
+// Canvas redraw logic
 canvas.addEventListener("drawing-changed", () => {
   ctx?.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Redraw all the strokes 
+  // Redraw all the strokes
   for (const stroke of strokes) {
     stroke.display(ctx!);
   }
 
-  // Display the current stroke 
+  // Display the current stroke
   if (currentStroke) {
     currentStroke.display(ctx!);
   }
 
-  // Display the sticker preview 
-  if (!drawing && stickerPreview) {
-    stickerPreview.display(ctx!);
-  }
-
-  // Display the tool preview 
+  // Display the brush stroke preview (as a point)
   if (!drawing && toolPreview) {
     toolPreview.display(ctx!);
   }
+
+  // Display the sticker preview
+  if (!drawing && stickerPreview) {
+    stickerPreview.display(ctx!);
+  }
 });
+
+// Initialize Sticker buttons
+updateStickerButtons(); 
