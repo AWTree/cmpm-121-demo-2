@@ -138,6 +138,7 @@ const redoButton = createButton("Redo");
 const thinMarkerButton = createButton("Thin");
 const thickMarkerButton = createButton("Thick");
 const customStickerButton = createButton("Add Custom Sticker");
+const exportButton = createButton("Export");
 
 app.appendChild(clearButton);
 app.appendChild(undoButton);
@@ -145,6 +146,7 @@ app.appendChild(redoButton);
 app.appendChild(thinMarkerButton);
 app.appendChild(thickMarkerButton);
 app.appendChild(customStickerButton);
+app.appendChild(exportButton);
 
 // Sticker array
 let stickers = ["🖌️", "🎨", "🎲"];
@@ -217,6 +219,28 @@ customStickerButton.addEventListener("click", () => {
   }
 });
 
+// Export button functionality
+exportButton.addEventListener("click", () => {
+  // Create a new temporary canvas of size 1024x1024
+  const exportCanvas = document.createElement("canvas");
+  exportCanvas.width = 1024;
+  exportCanvas.height = 1024;
+
+  const exportCtx = exportCanvas.getContext("2d");
+  if (exportCtx) {
+    exportCtx.scale(4, 4); 
+
+    for (const stroke of strokes) {
+      stroke.display(exportCtx); 
+    }
+
+    const anchor = document.createElement("a");
+    anchor.href = exportCanvas.toDataURL("image/png");
+    anchor.download = "sketchboard.png";
+    anchor.click();
+  }
+});
+
 //
 // HELPER FUNCTIONS
 //
@@ -254,22 +278,20 @@ function handleMouseDown(event: MouseEvent) {
 // Mouse move event handler
 function handleMouseMove(event: MouseEvent) {
   if (!drawing && !selectedSticker) {
-    // Ensure the tool preview is created and updated
     if (!toolPreview) {
       toolPreview = new ToolPreview(event.offsetX, event.offsetY, selectedLineWidth);
     } else {
       toolPreview.updatePosition(event.offsetX, event.offsetY);
     }
-    triggerDrawingChangedEvent();
+    triggerDrawingChangedEvent(); 
   } else if (drawing && currentStroke) {
     currentStroke.drag(event.offsetX, event.offsetY);
-    triggerDrawingChangedEvent();
+    triggerDrawingChangedEvent(); 
   } else if (!drawing && selectedSticker && stickerPreview) {
     stickerPreview.updatePosition(event.offsetX, event.offsetY);
-    triggerDrawingChangedEvent();
+    triggerDrawingChangedEvent(); 
   }
 }
-
 
 // Mouse up event handler
 function handleMouseUp() {
@@ -281,6 +303,13 @@ function handleMouseUp() {
     updateButtonStates();
   }
 }
+
+canvas.addEventListener("mouseleave", () => {
+  drawing = false; 
+  toolPreview = null; 
+  stickerPreview = null; 
+  triggerDrawingChangedEvent(); 
+});
 
 // Clear 
 function clearCanvas() {
