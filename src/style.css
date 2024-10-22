@@ -78,26 +78,31 @@ button {
   margin-top: 20px;
   margin-right: 10px;
   border-radius: 8px;
-  border: 1px solid transparent;
+  outline: none;
+  border: 2px solid black;
   padding: 0.6em 1.2em;
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
-  background-color: #1a1a1a;
+  color: black;
+  background-color: #1a1a1a00;
   cursor: pointer;
   transition: border-color 0.25s;
 }
 button:hover {
-  border-color: #646cff;
+  transition: 0.3s;
+  color: white;
+  background-color: black;
 }
 button:focus,
 button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+  color: white;
+  background-color: black;
 }
 
 .selectedTool {
-  background-color: #ddd;
-  border: 2px solid black;
+  color: white;
+  background-color: black;
 }
 
 @media (prefers-color-scheme: light) {

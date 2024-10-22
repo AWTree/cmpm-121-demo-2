@@ -132,6 +132,9 @@ canvas.width = 256;
 canvas.height = 256;
 app.appendChild(canvas);
 
+const thinMarkerWidth = 3; 
+const thickMarkerWidth = 10;
+
 const clearButton = createButton("Clear");
 const undoButton = createButton("Undo");
 const redoButton = createButton("Redo");
@@ -194,8 +197,8 @@ let stickerPreview: StickerPreview | null = null;
 //
 
 // Update tool thickness on button click
-thinMarkerButton.addEventListener("click", () => handleToolSelection(2, thinMarkerButton));
-thickMarkerButton.addEventListener("click", () => handleToolSelection(8, thickMarkerButton));
+thinMarkerButton.addEventListener("click", () => handleToolSelection(thinMarkerWidth, thinMarkerButton));
+thickMarkerButton.addEventListener("click", () => handleToolSelection(thickMarkerWidth, thickMarkerButton));
 
 // Handle mouse events on the canvas
 canvas.addEventListener("mousedown", handleMouseDown);
@@ -236,7 +239,7 @@ exportButton.addEventListener("click", () => {
 
     const anchor = document.createElement("a");
     anchor.href = exportCanvas.toDataURL("image/png");
-    anchor.download = "sketchboard.png";
+    anchor.download = "sketchpad_hi_res.png";
     anchor.click();
   }
 });
