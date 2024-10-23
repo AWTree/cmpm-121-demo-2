@@ -9,6 +9,7 @@ document.title = APP_NAME;
 // INTERFACES & CLASSES
 //
 
+
 // Interface for objects that can be drawn on the canvas
 interface DisplayCommand {
   display(ctx: CanvasRenderingContext2D): void;
@@ -18,10 +19,12 @@ interface DisplayCommand {
 class MarkerLine implements DisplayCommand {
   private points: Array<{ x: number; y: number }> = [];
   private lineWidth: number;
+  private color: string;
 
-  constructor(initialX: number, initialY: number, lineWidth: number) {
+  constructor(initialX: number, initialY: number, lineWidth: number,  color: string) {
     this.points.push({ x: initialX, y: initialY });
     this.lineWidth = lineWidth;
+    this.color = color;
   }
 
   drag(x: number, y: number) {
@@ -30,6 +33,7 @@ class MarkerLine implements DisplayCommand {
 
   display(ctx: CanvasRenderingContext2D) {
     ctx.lineWidth = this.lineWidth;
+    ctx.strokeStyle = this.color; 
     if (this.points.length > 0) {
       ctx.beginPath();
       ctx.moveTo(this.points[0].x, this.points[0].y);
@@ -77,11 +81,15 @@ class StickerPreview {
   private x: number;
   private y: number;
   private sticker: string;
+  private rotation: number;
+  private size: number;
 
-  constructor(x: number, y: number, sticker: string) {
+  constructor(x: number, y: number, sticker: string, rotation: number, size: number) {
     this.x = x;
     this.y = y;
     this.sticker = sticker;
+    this.rotation = rotation; 
+    this.size = size;
   }
 
   updatePosition(x: number, y: number) {
@@ -90,8 +98,12 @@ class StickerPreview {
   }
 
   display(ctx: CanvasRenderingContext2D) {
-    ctx.font = "40px Arial";
-    ctx.fillText(this.sticker, this.x, this.y);
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.rotate((this.rotation * Math.PI) / 180);
+    ctx.font = `${this.size}px Arial`; 
+    ctx.fillText(this.sticker, 0, 0);
+    ctx.restore();
   }
 }
 
@@ -100,11 +112,15 @@ class Sticker implements DisplayCommand {
   private x: number;
   private y: number;
   private sticker: string;
+  private rotation: number;
+  private size: number;
 
-  constructor(x: number, y: number, sticker: string) {
+  constructor(x: number, y: number, sticker: string, rotation: number, size: number) {
     this.x = x;
     this.y = y;
     this.sticker = sticker;
+    this.rotation = rotation; 
+    this.size = size;
   }
 
   drag(x: number, y: number) {
@@ -113,10 +129,15 @@ class Sticker implements DisplayCommand {
   }
 
   display(ctx: CanvasRenderingContext2D) {
-    ctx.font = "40px Arial";
-    ctx.fillText(this.sticker, this.x, this.y);
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.rotate((this.rotation * Math.PI) / 180); 
+    ctx.font = `${this.size}px Arial`;
+    ctx.fillText(this.sticker, 0, 0);
+    ctx.restore();
   }
 }
+
 
 //
 // HTML ELEMENTS & SETUP
@@ -151,6 +172,12 @@ app.appendChild(thickMarkerButton);
 app.appendChild(customStickerButton);
 app.appendChild(exportButton);
 
+// Add color picker to HTML
+const colorPicker = document.createElement("input");
+colorPicker.type = "color";
+colorPicker.value = "#000000"; 
+app.appendChild(colorPicker);
+
 // Sticker array
 let stickers = ["🖌️", "🎨", "🎲"];
 const stickerButtonsContainer = document.createElement("div");
@@ -164,13 +191,18 @@ function createButton(text: string): HTMLButtonElement {
 }
 
 function updateStickerButtons() {
-  stickerButtonsContainer.innerHTML = ""; // Clear old buttons
+  stickerButtonsContainer.innerHTML = "";
   stickers.forEach((sticker) => {
     const stickerButton = createButton(sticker);
     stickerButton.addEventListener("click", () => handleStickerSelection(sticker, stickerButton));
     stickerButtonsContainer.appendChild(stickerButton);
   });
 }
+
+function getRandomRotation() {
+  return Math.floor(Math.random() * 360); 
+}
+
 
 //
 // VARIABLES & STATE
@@ -191,6 +223,9 @@ let selectedLineWidth = 2;
 let toolPreview: ToolPreview | null = null;
 let selectedSticker: string | null = null;
 let stickerPreview: StickerPreview | null = null;
+let currentBrushColor = "#000000"; 
+const stickerSizeSlider = document.getElementById("stickerSize") as HTMLInputElement;
+let stickerSize = 40; 
 
 //
 // EVENT LISTENERS
@@ -222,6 +257,15 @@ customStickerButton.addEventListener("click", () => {
   }
 });
 
+stickerSizeSlider.addEventListener("input", () => {
+  stickerSize = parseInt(stickerSizeSlider.value, 10);
+});
+
+// Event listener for color picker
+colorPicker.addEventListener("input", () => {
+  currentBrushColor = colorPicker.value;
+});
+
 // Export button functionality
 exportButton.addEventListener("click", () => {
   // Create a new temporary canvas of size 1024x1024
@@ -251,14 +295,16 @@ exportButton.addEventListener("click", () => {
 // Handle sticker selection and update the preview
 function handleStickerSelection(sticker: string, button: HTMLButtonElement) {
   selectedSticker = sticker;
+  const randomRotation = getRandomRotation(); 
+  stickerPreview = new StickerPreview(0, 0, sticker, randomRotation, stickerSize); 
   updateSelectedTool(button);
   updateStickerPreview();
 }
-
 // Handle tool selection 
 function handleToolSelection(lineWidth: number, button: HTMLButtonElement) {
   selectedLineWidth = lineWidth;
-  selectedSticker = null; // Clear any sticker selection when switching to brush tool
+  selectedSticker = null;
+  currentStroke = new MarkerLine(0, 0, lineWidth, currentBrushColor); 
   updateSelectedTool(button);
   updateToolPreview();
   triggerDrawingChangedEvent();
@@ -267,13 +313,14 @@ function handleToolSelection(lineWidth: number, button: HTMLButtonElement) {
 // Mouse down event handler
 function handleMouseDown(event: MouseEvent) {
   if (selectedSticker) {
-    const sticker = new Sticker(event.offsetX, event.offsetY, selectedSticker);
+    const randomRotation = getRandomRotation();
+    const sticker = new Sticker(event.offsetX, event.offsetY, selectedSticker, randomRotation, stickerSize);
     strokes.push(sticker);
     stickerPreview = null; 
   } else {
     drawing = true;
     toolPreview = null; 
-    currentStroke = new MarkerLine(event.offsetX, event.offsetY, selectedLineWidth);
+    currentStroke = new MarkerLine(event.offsetX, event.offsetY, selectedLineWidth, currentBrushColor);
   }
   triggerDrawingChangedEvent();
 }
@@ -351,9 +398,10 @@ function triggerDrawingChangedEvent() {
 
 // Update the sticker preview
 function updateStickerPreview() {
+  const randomRotation = getRandomRotation();
   stickerPreview = null;
   if (selectedSticker) {
-    stickerPreview = new StickerPreview(0, 0, selectedSticker);
+    stickerPreview = new StickerPreview(0, 0, selectedSticker, randomRotation, stickerSize);
   }
   triggerDrawingChangedEvent();
 }
@@ -362,7 +410,6 @@ function updateToolPreview() {
   if (toolPreview) {
     toolPreview.updateLineWidth(selectedLineWidth);
   } else {
-    // Create tool preview if not already created
     toolPreview = new ToolPreview(0, 0, selectedLineWidth);
   }
   triggerDrawingChangedEvent();
