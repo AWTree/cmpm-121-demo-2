@@ -45,7 +45,6 @@ class MarkerLine implements DisplayCommand {
   }
 }
 
-// Class for displaying the tool preview
 class ToolPreview {
   private x: number;
   private y: number;
@@ -76,7 +75,6 @@ class ToolPreview {
   }
 }
 
-// Class for displaying the sticker preview
 class StickerPreview {
   private x: number;
   private y: number;
@@ -178,12 +176,10 @@ colorPicker.type = "color";
 colorPicker.value = "#000000"; 
 app.appendChild(colorPicker);
 
-// Sticker array
-let stickers = ["🖌️", "🎨", "🎲"];
+const stickers = ["🖌️", "🎨", "🎲"];
 const stickerButtonsContainer = document.createElement("div");
 app.appendChild(stickerButtonsContainer);
 
-// Function to create buttons
 function createButton(text: string): HTMLButtonElement {
   const button = document.createElement("button");
   button.textContent = text;
@@ -235,16 +231,13 @@ let stickerSize = 40;
 thinMarkerButton.addEventListener("click", () => handleToolSelection(thinMarkerWidth, thinMarkerButton));
 thickMarkerButton.addEventListener("click", () => handleToolSelection(thickMarkerWidth, thickMarkerButton));
 
-// Handle mouse events on the canvas
 canvas.addEventListener("mousedown", handleMouseDown);
 canvas.addEventListener("mousemove", handleMouseMove);
 canvas.addEventListener("mouseup", handleMouseUp);
 canvas.addEventListener("mouseleave", () => (drawing = false));
 
-// Clear button functionality
 clearButton.addEventListener("click", clearCanvas);
 
-// Undo/redo button functionality
 undoButton.addEventListener("click", undoLastAction);
 redoButton.addEventListener("click", redoLastAction);
 
@@ -261,7 +254,6 @@ stickerSizeSlider.addEventListener("input", () => {
   stickerSize = parseInt(stickerSizeSlider.value, 10);
 });
 
-// Event listener for color picker
 colorPicker.addEventListener("input", () => {
   currentBrushColor = colorPicker.value;
 });
@@ -300,7 +292,7 @@ function handleStickerSelection(sticker: string, button: HTMLButtonElement) {
   updateSelectedTool(button);
   updateStickerPreview();
 }
-// Handle tool selection 
+
 function handleToolSelection(lineWidth: number, button: HTMLButtonElement) {
   selectedLineWidth = lineWidth;
   selectedSticker = null;
@@ -310,7 +302,6 @@ function handleToolSelection(lineWidth: number, button: HTMLButtonElement) {
   triggerDrawingChangedEvent();
 }
 
-// Mouse down event handler
 function handleMouseDown(event: MouseEvent) {
   if (selectedSticker) {
     const randomRotation = getRandomRotation();
@@ -325,7 +316,6 @@ function handleMouseDown(event: MouseEvent) {
   triggerDrawingChangedEvent();
 }
 
-// Mouse move event handler
 function handleMouseMove(event: MouseEvent) {
   if (!drawing && !selectedSticker) {
     if (!toolPreview) {
@@ -343,7 +333,6 @@ function handleMouseMove(event: MouseEvent) {
   }
 }
 
-// Mouse up event handler
 function handleMouseUp() {
   if (drawing && currentStroke) {
     strokes.push(currentStroke);
@@ -361,7 +350,6 @@ canvas.addEventListener("mouseleave", () => {
   triggerDrawingChangedEvent(); 
 });
 
-// Clear 
 function clearCanvas() {
   strokes = [];
   currentStroke = null;
@@ -370,7 +358,6 @@ function clearCanvas() {
   updateButtonStates();
 }
 
-// Undo 
 function undoLastAction() {
   if (strokes.length > 0) {
     const lastStroke = strokes.pop();
@@ -380,7 +367,6 @@ function undoLastAction() {
   }
 }
 
-// Redo 
 function redoLastAction() {
   if (redoStack.length > 0) {
     const redoStroke = redoStack.pop();
@@ -390,13 +376,11 @@ function redoLastAction() {
   }
 }
 
-// Trigger the "drawing-changed" event 
 function triggerDrawingChangedEvent() {
   const event = new Event("drawing-changed");
   canvas.dispatchEvent(event);
 }
 
-// Update the sticker preview
 function updateStickerPreview() {
   const randomRotation = getRandomRotation();
   stickerPreview = null;
@@ -405,7 +389,7 @@ function updateStickerPreview() {
   }
   triggerDrawingChangedEvent();
 }
-// Update the tool preview 
+
 function updateToolPreview() {
   if (toolPreview) {
     toolPreview.updateLineWidth(selectedLineWidth);
